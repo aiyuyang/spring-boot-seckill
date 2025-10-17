@@ -1,0 +1,56 @@
+# 服务器端口配置
+server:
+  port: 8081
+
+# Spring Boot 应用配置
+spring:
+  application:
+    name: seckill-system # 应用名称
+
+  # --- MySQL 数据库连接配置 ---
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    # 将 'seckill_db' 替换为你的数据库名，确保这个数据库已经创建
+    url: jdbc:mysql://localhost:3306/seckill_db?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai&createDatabaseIfNotExist=true
+    username: root # 你的数据库用户名
+    password: password # 你的数据库密码
+
+  # --- SQL 初始化（测试与本地开发） ---
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:schema.sql
+      continue-on-error: true
+
+  # --- Redis 连接配置 ---
+  redis:
+    host: 127.0.0.1
+    port: 6379
+    # password: your_redis_password # 如果你的Redis有密码，取消这行注释并修改
+    lettuce:
+      pool:
+        max-active: 8
+        max-idle: 8
+        min-idle: 0
+        max-wait: 1000ms # 连接池等待超时时间
+
+  # --- RabbitMQ 连接配置 ---
+  rabbitmq:
+    host: 127.0.0.1
+    port: 5672
+    username: guest # RabbitMQ默认的用户名
+    password: guest # RabbitMQ默认的密码
+    # virtual-host: / # 虚拟主机，默认是'/'
+
+# --- MyBatis-Plus 配置 ---
+mybatis-plus:
+  # 指定Mapper XML文件的位置
+  mapper-locations: classpath:/mapper/*.xml
+  # 配置日志，方便在开发时查看执行的SQL语句
+  configuration:
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+  global-config:
+    db-config:
+      # 主键策略：ASSIGN_ID表示使用雪花算法等分布式ID（需要自己配置Bean）
+      # 在初期，为了简单，你也可以先用 'auto' (数据库自增)
+      id-type: auto

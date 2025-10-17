@@ -1,0 +1,10 @@
+# 生产环境配置示例
+spring:
+  datasource:
+    url: jdbc:mysql://prod-server-ip:3306/prod_db
+    username: prod_user
+    password: ${PROD_DB_PASSWORD} # 密码通常通过环境变量或配置中心注入，而不是硬编码
+  redis:
+    host: prod-redis-ip
+  rabbitmq:
+    host: prod-rabbitmq-ip
