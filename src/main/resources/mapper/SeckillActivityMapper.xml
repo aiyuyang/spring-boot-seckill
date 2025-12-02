@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.seckill_system.mapper.SeckillActivityMapper">
+
+    <resultMap id="BaseResultMap" type="com.example.seckill_system.entity.SeckillActivity">
+        <id column="id" property="id" />
+        <result column="name" property="name" />
+        <result column="product_id" property="productId" />
+        <result column="original_price" property="originalPrice" />
+        <result column="seckill_price" property="seckillPrice" />
+        <result column="initial_stock" property="initialStock" />
+        <result column="available_stock" property="availableStock" />
+        <result column="start_time" property="startTime" />
+        <result column="end_time" property="endTime" />
+        <result column="create_time" property="createTime" />
+    </resultMap>
+
+    </mapper>

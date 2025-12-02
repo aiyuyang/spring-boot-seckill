@@ -14,11 +14,11 @@ public class SeckillOrder {
     @TableId(type = IdType.AUTO)
     private Long id;
 
-    private Long activity_id;
+    private Long activityId;
 
-    private Long user_id;
+    private Long userId;
 
-    private Long order_id;
+    private Long orderId;
 
-    private LocalDateTime create_time;
+    private LocalDateTime createTime;
 }

@@ -16,13 +16,13 @@ public class OrderInfo {
     @TableId(type = IdType.AUTO)
     private Long id;
 
-    private Long user_id;
+    private Long userId;
 
-    private Long product_id;
+    private Long productId;
 
-    private BigDecimal order_price;
+    private BigDecimal orderPrice;
 
-    private Integer order_status;
+    private Integer orderStatus;
 
-    private LocalDateTime create_time;
+    private LocalDateTime createTime;
 }

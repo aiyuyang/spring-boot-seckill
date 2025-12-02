@@ -17,17 +17,19 @@ public class SeckillActivity {
     
     private String name;
 
-    private Long product_id;
+    private Long productId;
 
-    private LocalDateTime start_time;
+    private LocalDateTime startTime;
 
-    private LocalDateTime end_time;
+    private LocalDateTime endTime;
 
-    private BigDecimal original_price;
+    private BigDecimal originalPrice;
 
-    private BigDecimal seckill_price;
+    private BigDecimal seckillPrice;
 
-    private Integer initial_stock;
+    private Integer initialStock;
+    
+    private Integer availableStock;
 
-    private LocalDateTime create_time;
+    private LocalDateTime createTime;
 }
