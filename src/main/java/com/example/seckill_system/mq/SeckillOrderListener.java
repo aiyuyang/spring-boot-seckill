@@ -13,6 +13,7 @@ import com.example.seckill_system.dto.SeckillMessage;
 import com.example.seckill_system.entity.SeckillActivity;
 import com.example.seckill_system.service.ISeckillActivityService;
 import com.example.seckill_system.service.ISeckillOrderService;
+import com.example.seckill_system.service.ISeckillService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 
@@ -24,6 +25,9 @@ public class SeckillOrderListener {
 
     @Autowired
     private ISeckillActivityService seckillActivityService;
+
+    @Autowired
+    private ISeckillService seckillService;
 
     @Resource
     private StringRedisTemplate stringRedisTemplate;
@@ -39,7 +43,7 @@ public class SeckillOrderListener {
      */
     @RabbitListener(queues = RabbitMQConfig.QUEUE)
     public void receiveMessage(SeckillMessage message) {
-        System.out.println("MQ接收消息: " + message);
+        // System.out.println("MQ接收消息: " + message);
 
         Long userId = message.getUserId();
         Long activityId = message.getActivityId();
@@ -67,18 +71,24 @@ public class SeckillOrderListener {
                 activity.getProductId(),
                 activity.getSeckillPrice()
             );
-            System.out.println(">>> 数据库下单成功 (User:" + userId + ", Order:" + orderId + ")");
+            // System.out.println(">>> 数据库下单成功 (User:" + userId + ", Order:" + orderId + ")");
 
         } catch (DuplicateKeyException e) {
             // 3. 【幂等性处理】核心！
             // 如果 MySQL 报唯一索引冲突 (uk_activity_user)，说明该用户已经创建过订单了。
             // 这种情况可能是 MQ 消息重复发送导致的，我们直接吞掉异常，视为“成功”，
             // 否则 MQ 会以为消费失败，无限重试，导致死循环。
-            System.out.println("消息重复消费或用户重复下单 (User:" + userId + "), 已忽略。");
+
+            // System.out.println("重复下单，回补库存...");
+            seckillService.recoverStock(activityId);
 
         } catch (Exception e) {
             // 4. 其他异常 (如数据库连接断开)
             // 抛出异常，让 RabbitMQ 进行重试 (默认重试3次)
+
+            // System.err.println("下单失败 (" + e.getMessage() + ")，正在回补 Redis 库存...");
+            seckillService.recoverStock(activityId);
+
             throw e;
         }
     }
@@ -95,7 +105,7 @@ public class SeckillOrderListener {
         try {
             return mapper.readValue(json, SeckillActivity.class);
         } catch (Exception e) {
-            System.err.println("Redis JSON 解析失败: " + e.getMessage());
+            // System.err.println("Redis JSON 解析失败: " + e.getMessage());
             return null;
         }
     }

@@ -5,6 +5,7 @@ import java.time.LocalDateTime;
 
 import javax.annotation.Resource;
 
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -14,10 +15,12 @@ import com.example.seckill_system.dto.SeckillMessage;
 import com.example.seckill_system.entity.OrderInfo;
 import com.example.seckill_system.entity.SeckillActivity;
 import com.example.seckill_system.entity.SeckillOrder;
+import com.example.seckill_system.exception.GlobalException;
 import com.example.seckill_system.mapper.OrderInfoMapper;
 import com.example.seckill_system.mapper.SeckillActivityMapper;
 import com.example.seckill_system.mapper.SeckillOrderMapper;
 import com.example.seckill_system.service.ISeckillOrderService;
+import com.example.seckill_system.vo.RespBeanEnum;
 
 @Service
 public class SeckillOrderServiceImpl extends ServiceImpl<OrderInfoMapper, OrderInfo> implements ISeckillOrderService {
@@ -30,6 +33,9 @@ public class SeckillOrderServiceImpl extends ServiceImpl<OrderInfoMapper, OrderI
 
     @Resource
     private SeckillActivityMapper seckillActivityMapper;
+
+    @Resource
+    private StringRedisTemplate stringRedisTemplate;
 
     /**
      * 创建订单的核心业务
@@ -49,9 +55,20 @@ public class SeckillOrderServiceImpl extends ServiceImpl<OrderInfoMapper, OrderI
         int updateCount = seckillActivityMapper.update(null, updateWrapper);
 
         // 如果影响行数 < 1，说明库存已经是0了，或者活动不存在
+        // 【核心一致性校验】
         if (updateCount < 1) {
-            System.out.println("DB落单失败：库存不足 (ActivityId: " + activityId + ")");
-            throw new RuntimeException("库存不足，数据库扣减失败");
+            // 意味着：MySQL 扣减失败，数据库里其实已经没货了 (stock=0)
+            // 但能走到这一步，说明 Redis 刚才居然放行了 (Redis 认为 stock > 0)
+            // 说明 Redis 数据偏高了 (脏数据)。
+            
+            // 🚨 强制同步：把 Redis 库存修正为 0
+            SeckillActivity dbActivity = seckillActivityMapper.selectById(activityId);
+            if (dbActivity != null && dbActivity.getAvailableStock() == 0) {
+                stringRedisTemplate.opsForValue().set("seckill:stock:" + activityId, "0");
+            }
+
+            // System.out.println("DB落单失败：库存不足 (ActivityId: " + activityId + ")");
+            throw new GlobalException(RespBeanEnum.EMPTY_STOCK);
         }
 
         // 2. 创建普通订单明细 (OrderInfo)

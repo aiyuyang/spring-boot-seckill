@@ -1,21 +1,29 @@
 # 服务器端口配置
 server:
   port: 8081
+  tomcat:
+    threads:
+      max: 200 # Tomcat 最大工作线程 (确保能接收并发请求)
+      min-spare: 10
 
 # Spring Boot 应用配置
 spring:
   application:
-    name: seckill-system # 应用名称
+    name: seckill-system
 
   # --- MySQL 数据库连接配置 ---
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
-    # 将 'seckill_db' 替换为你的数据库名，确保这个数据库已经创建
+    # 记得保留 createDatabaseIfNotExist=true
     url: jdbc:mysql://localhost:3306/seckill_db?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai&createDatabaseIfNotExist=true
-    username: root # 你的数据库用户名
-    password: password # 你的数据库密码
+    username: root
+    password: password
+    # 【新增】HikariCP 连接池优化 (为了配合MQ消费者入库)
+    hikari:
+      maximum-pool-size: 20 # 设大一点，防止 10 个 MQ 消费者抢不到连接
+      minimum-idle: 10
 
-  # --- SQL 初始化（测试与本地开发） ---
+  # --- SQL 初始化 ---
   sql:
     init:
       mode: always
@@ -26,31 +34,42 @@ spring:
   redis:
     host: 127.0.0.1
     port: 6379
-    # password: your_redis_password # 如果你的Redis有密码，取消这行注释并修改
     lettuce:
       pool:
-        max-active: 8
-        max-idle: 8
-        min-idle: 0
-        max-wait: 1000ms # 连接池等待超时时间
+        # 【重点】针对压测大幅提升连接数
+        # 默认只有8，面对1000并发会瞬间被借光，导致请求报错或等待
+        max-active: 100 
+        max-idle: 20
+        min-idle: 5
+        max-wait: 3000ms 
 
   # --- RabbitMQ 连接配置 ---
   rabbitmq:
     host: 127.0.0.1
     port: 5672
-    username: guest # RabbitMQ默认的用户名
-    password: guest # RabbitMQ默认的密码
-    # virtual-host: / # 虚拟主机，默认是'/'
+    username: guest
+    password: guest
+    listener:
+      simple:
+        # 【重点】消费者并发数优化
+        # 默认是1，消费速度太慢。改为10个线程同时从队列取消息写入DB
+        concurrency: 10
+        max-concurrency: 20
+        # 每次只预取1条，保证负载均衡
+        prefetch: 1
 
 # --- MyBatis-Plus 配置 ---
 mybatis-plus:
-  # 指定Mapper XML文件的位置
   mapper-locations: classpath:/mapper/*.xml
-  # 配置日志，方便在开发时查看执行的SQL语句
-  configuration:
-    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+  # configuration:
+    # 压测时建议关闭 SQL 日志打印，否则控制台 IO 会拖慢速度
+    # 如果想看日志，保留这一行；如果追求极致性能，注释掉或改成 null
+    # log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
   global-config:
     db-config:
-      # 主键策略：ASSIGN_ID表示使用雪花算法等分布式ID（需要自己配置Bean）
-      # 在初期，为了简单，你也可以先用 'auto' (数据库自增)
       id-type: auto
+
+# --- JWT 配置 ---
+jwt:
+  secret: MySeckillSecretKey_Production_eXtremeL0ng
+  expiration: 86400

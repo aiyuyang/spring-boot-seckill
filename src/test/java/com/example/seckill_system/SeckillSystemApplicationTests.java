@@ -21,9 +21,6 @@ class SeckillSystemApplicationTests {
 
 	@Test
 	void testDatabaseConnection() {
-		System.out.println("Starting querying database...");
 		List<SeckillActivity> list = seckillActivityService.list();
-		System.out.println("Querying complete.");
-		System.out.println("Result: " + list);
 	}
 }
