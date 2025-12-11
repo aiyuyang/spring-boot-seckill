@@ -1,33 +1,111 @@
-version: '3.8'
 services:
   # MySQL 服务
   mysql:
     image: mysql:8.0
     container_name: seckill-mysql
     ports:
-      - "3306:3306" # 映射端口
+      - "3306:3306"
     environment:
-      MYSQL_ROOT_PASSWORD: password # 对应你 yml 里的 password
-      MYSQL_DATABASE: seckill_db    # 对应你 yml 里的数据库名
-    command: --default-authentication-plugin=mysql_native_password # 兼容性配置
+      MYSQL_ROOT_PASSWORD: password
+      MYSQL_DATABASE: seckill_db
+    command: --default-authentication-plugin=mysql_native_password
     volumes:
-      - ./data/mysql:/var/lib/mysql # 数据持久化，防止重启容器数据丢失
+      - mysql_data:/var/lib/mysql
+    networks:
+      - seckill-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   # Redis 服务
   redis:
     image: redis:alpine
     container_name: seckill-redis
     ports:
-      - "6379:6379" # 映射端口
-    command: redis-server --appendonly yes # 开启AOF持久化
+      - "6379:6379"
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    networks:
+      - seckill-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
-  # RabbitMQ 服务 (虽然你没问，但你的yml里配置了它，不启动的话Spring启动会报错)
+  # RabbitMQ 服务
   rabbitmq:
     image: rabbitmq:management
     container_name: seckill-rabbitmq
     ports:
-      - "5672:5672"  # 通信端口
-      - "15672:15672" # 管理后台端口 (访问 http://localhost:15672)
+      - "5672:5672"   # 通信端口
+      - "15672:15672" # 管理后台端口
     environment:
       RABBITMQ_DEFAULT_USER: guest
       RABBITMQ_DEFAULT_PASS: guest
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    networks:
+      - seckill-network
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # 后端服务
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: seckill-backend
+    ports:
+      - "8081:8081"
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/seckill_db?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: password
+      SPRING_REDIS_HOST: redis
+      SPRING_REDIS_PORT: 6379
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_RABBITMQ_PORT: 5672
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - seckill-network
+    restart: unless-stopped
+
+  # 前端服务
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_BASE_URL: http://localhost:8081
+    container_name: seckill-frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    networks:
+      - seckill-network
+    restart: unless-stopped
+
+volumes:
+  mysql_data:
+  redis_data:
+  rabbitmq_data:
+
+networks:
+  seckill-network:
+    driver: bridge
+

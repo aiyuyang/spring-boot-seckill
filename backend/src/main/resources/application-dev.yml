@@ -1,0 +1,75 @@
+# Server port configuration
+server:
+  port: 8081
+  tomcat:
+    threads:
+      max: 200 # Tomcat max worker threads (ensure can handle concurrent requests)
+      min-spare: 10
+
+# Spring Boot application configuration
+spring:
+  application:
+    name: seckill-system
+
+  # --- MySQL database connection configuration ---
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    # Remember to keep createDatabaseIfNotExist=true
+    url: jdbc:mysql://localhost:3306/seckill_db?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai&createDatabaseIfNotExist=true
+    username: root
+    password: password
+    # HikariCP connection pool optimization (for MQ consumer database writes)
+    hikari:
+      maximum-pool-size: 20 # Set larger to prevent 10 MQ consumers from competing for connections
+      minimum-idle: 10
+
+  # --- SQL initialization ---
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:schema.sql
+      continue-on-error: true
+
+  # --- Redis connection configuration ---
+  redis:
+    host: 127.0.0.1
+    port: 6379
+    lettuce:
+      pool:
+        # Important: Significantly increase connection count for stress testing
+        # Default is only 8, will be exhausted instantly under 1000 concurrency, causing request errors or waits
+        max-active: 100 
+        max-idle: 20
+        min-idle: 5
+        max-wait: 3000ms 
+
+  # --- RabbitMQ connection configuration ---
+  rabbitmq:
+    host: 127.0.0.1
+    port: 5672
+    username: guest
+    password: guest
+    listener:
+      simple:
+        # Important: Consumer concurrency optimization
+        # Default is 1, consumption speed too slow. Changed to 10 threads concurrently fetching messages from queue and writing to DB
+        concurrency: 10
+        max-concurrency: 20
+        # Prefetch only 1 message at a time to ensure load balancing
+        prefetch: 1
+
+# --- MyBatis-Plus configuration ---
+mybatis-plus:
+  mapper-locations: classpath:/mapper/*.xml
+  # configuration:
+    # Recommend closing SQL log printing during stress testing, otherwise console IO will slow down
+    # If you want to see logs, keep this line; if pursuing extreme performance, comment out or set to null
+    # log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+  global-config:
+    db-config:
+      id-type: auto
+
+# --- JWT configuration ---
+jwt:
+  secret: MySeckillSecretKey_Production_eXtremeL0ng
+  expiration: 86400
